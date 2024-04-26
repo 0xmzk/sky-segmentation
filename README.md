@@ -1,6 +1,7 @@
-# Skyline Extraction
+# Sky segmentation for mountainous landscapes
+_Within mountainous imagery, a skyline is defined as the boundary at which the sky meets the mountains (foreground)_
 
-This repo contains two high-level implementations for skyline extraction.
+This repo contains two high-level implementations for sky segmentation.
 
 The two approaches are:
 1. OneFormer based (https://arxiv.org/abs/2211.06220)
