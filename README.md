@@ -9,6 +9,12 @@ The two approaches are:
 
 Both models were trained on images from the dataset: https://www.kaggle.com/datasets/mieszkokaminski/geopose3k-processed-original-new
 
+# Installation
+```
+pip install git+https://github.com/0xmzk/sky-segmentation.git
+```
+
+
 # OneFormer
 A pre-trained model is on HuggingFace. This model is automatically loaded by when using the API provided.
 
