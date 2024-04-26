@@ -27,15 +27,19 @@ class PanopticSegmentationOutput:
 
 class SkylinePipeline:
     def __init__(self,
-                 imgs: List[MatLike],
                  device: torch.device,
                  checkpoint=PRE_TRAINED_CHECKPOINT,
                  ) -> None:
-        self.imgs = imgs
         self.device = device
         self.checkpoint = checkpoint
         self.processor = AutoProcessor.from_pretrained(checkpoint)
         self.model = AutoModelForUniversalSegmentation.from_pretrained(checkpoint).to(device)
+        self.model.eval()
+        # set is_training attribute of base OneFormerModel to None after training
+        # this disables the text encoder and hence enables to do forward passes
+        # without passing text_inputs
+        self.model.model.is_training = False
+        self.model.to(self.device)
 
     @staticmethod
     def post_process_panoptic_segmentation(segmentation: torch.Tensor, segments_info: List[SegmentsInfo]) -> NDArray:
@@ -51,27 +55,23 @@ class SkylinePipeline:
         return segmentation_np
 
 
-    def run_inferences(self):
-        self.model.eval()
-        # set is_training attribute of base OneFormerModel to None after training
-        # this disables the text encoder and hence enables to do forward passes
-        # without passing text_inputs
-        self.model.model.is_training = False
-        self.model.to(self.device)
+    def run_inference(self, image: NDArray) -> NDArray:
+        # check if np array
+        if not isinstance(image, np.ndarray):
+            raise ValueError("image must be a numpy array")
+        # check if image is 3 channel image or empty
+        if len(image.shape) != 3 or image.shape[2] != 3:
+            raise ValueError("image must be a 3 channel image")
+        
+        panoptic_inputs = self.processor(images=image, task_inputs=["panoptic"], return_tensors="pt")
+        panoptic_inputs = {k: v.to(self.device) for k, v in panoptic_inputs.items()}
 
-        for i in range(len(self.imgs)):
-            img = self.imgs[i]
-
-            panoptic_inputs = self.processor(images=img, task_inputs=["panoptic"], return_tensors="pt")
-            panoptic_inputs = {k: v.to(self.device) for k, v in panoptic_inputs.items()}
-            
-            with torch.no_grad():
-                outputs = self.model(**panoptic_inputs)
-            panoptic_segmentation = self.processor.post_process_panoptic_segmentation(outputs, target_sizes=[
-                (img.shape[0], img.shape[1])])[0]
-            mask = SkylinePipeline.post_process_panoptic_segmentation(
-                panoptic_segmentation['segmentation'],
-                [SegmentsInfo.from_dict(d) for d in panoptic_segmentation['segments_info']],
-            )
-            yield mask
-        return 
+        with torch.no_grad():
+            outputs = self.model(**panoptic_inputs)
+        panoptic_segmentation = self.processor.post_process_panoptic_segmentation(outputs, target_sizes=[
+            (image.shape[0], image.shape[1])])[0]
+        mask = SkylinePipeline.post_process_panoptic_segmentation(
+            panoptic_segmentation['segmentation'],
+            [SegmentsInfo.from_dict(d) for d in panoptic_segmentation['segments_info']],
+        )
+        return mask

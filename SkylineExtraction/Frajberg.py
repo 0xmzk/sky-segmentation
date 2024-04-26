@@ -574,6 +574,7 @@ class SkylinePipeline:
         self.device = device
         self.skyline_search_params = skyline_search_params
         self.eps = eps
+        self.model.to(self.device)
 
     def run_inference(self, return_probability_map=False) -> NDArray[np.uint8]:
         """
